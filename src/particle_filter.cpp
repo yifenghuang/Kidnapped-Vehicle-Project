@@ -6,7 +6,6 @@
  */
 
 #define _USE_MATH_DEFINES
-
 #include <random>
 #include <algorithm>
 #include <iostream>
@@ -16,7 +15,6 @@
 #include <sstream>
 #include <string>
 #include <iterator>
-
 #include "particle_filter.h"
 
 using namespace std;
@@ -27,32 +25,28 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
-    // Set number of particles
     num_particles = 25;
 
-    // Create normal distributions for x, y and theta initial poses
+    //a random generator engine
     default_random_engine gen;
-    normal_distribution<double> dist_x(x, std[0]);
-    normal_distribution<double> dist_y(y, std[1]);
-    normal_distribution<double> dist_theta(theta, std[2]);
+    normal_distribution<double> dx(x, std[0]);
+    normal_distribution<double> dy(y, std[1]);
+    normal_distribution<double> dt(theta, std[2]);
 
-    // Create initial particles
+    //initialize particles
     for (int i = 0; i < num_particles; i++)
     {
-        // Create particle
         Particle particle;
         particle.id = i;
-        particle.x = dist_x(gen);
-        particle.y = dist_y(gen);
-        particle.theta = dist_theta(gen);
+        particle.x = dx(gen);
+        particle.y = dy(gen);
+        particle.theta = dt(gen);
         particle.weight = 1;
 
-        // Add to list
         particles.push_back(particle);
         weights.push_back(particle.weight);
     }
 
-    // Set initialisation flag to true
     is_initialized = true;
 }
 
@@ -62,7 +56,6 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
-    // Create noise model
     default_random_engine gen;
     normal_distribution<double> dist_x(0, std_pos[0]);
     normal_distribution<double> dist_y(0, std_pos[1]);
@@ -70,7 +63,6 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
     for (int i = 0; i < num_particles; i++)
     {
-        // Update position based on model
         Particle & particle = particles[i];
         if (abs(yaw_rate) > 0)
         {
@@ -83,8 +75,6 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
             particle.x += velocity * delta_t * sin(particle.theta);
             particle.y += velocity * delta_t * cos(particle.theta);
         }
-
-        // Add noise
 
         particle.x += dist_x(gen);
         particle.y += dist_y(gen);
@@ -101,8 +91,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
     for (int i = 0; i < observations.size(); i++)
     {
         LandmarkObs & measurement = observations[i];
-
         measurement.id = 0;
+
         double bestAssociationDistance = sensor_range;
         for (int j = 0; j < predicted.size(); j++)
         {
@@ -119,7 +109,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
-		std::vector<LandmarkObs> observations, Map map_landmarks) {
+		std::vector<LandmarkObs> observations, Map map_landmarks)
+{
 	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
@@ -134,40 +125,32 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     for (int i = 0; i < num_particles; i++)
     {
         Particle & particle = particles[i];
-
-        // Calculate predicted measurement to each feature
         std::vector<LandmarkObs> predictions;
+        std::vector<int> associations;
+        std::vector<double> sense_x;
+        std::vector<double> sense_y;
+        double weight = 1;
+
         for (int k = 0; k < map_landmarks.landmark_list.size(); k++)
         {
             const Map::single_landmark_s & landmark = map_landmarks.landmark_list[k];
 
-            // Calculate offset to feature from particle
+            // Calculate the offset
             double dx = landmark.x_f - particle.x;
             double dy = landmark.y_f - particle.y;
-
-            // Convert into vehicle frame
             double sense_x = dx * cos(particle.theta) + dy * sin(particle.theta);
             double sense_y = -dx * sin(particle.theta) + dy * cos(particle.theta);
 
-            // Create prediction
             LandmarkObs predicted;
             predicted.id = landmark.id_i;
             predicted.x = sense_x;
             predicted.y = sense_y;
 
-            // Add to list
             predictions.push_back(predicted);
         }
 
-        // Associate measurements based on predicted measurements
         dataAssociation(predictions, observations, sensor_range);
 
-        // Calculate new particle weight and associations
-        std::vector<int> associations;
-        std::vector<double> sense_x;
-        std::vector<double> sense_y;
-
-        double weight = 1;
         for (int j = 0; j < observations.size(); j++)
         {
             const LandmarkObs & measurement = observations[j];
@@ -206,7 +189,6 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
-    // Create distribution that returns particle indices with probability based on weight of particle
     default_random_engine gen;
     discrete_distribution<int> distribution(weights.begin(), weights.end());
 
